@@ -12,10 +12,9 @@ if [[ ! -f "conda/envs/linux/bin/python" && $KCPP_CUDA != "rocm" || $1 == "rebui
 		KCPP_CUDA=12.1.0
 	fi
 	bin/micromamba create --no-rc --no-shortcuts -r conda -p conda/envs/linux -f environment.tmp.yaml -y
-	bin/micromamba create --no-rc --no-shortcuts -r conda -p conda/envs/linux -f environment.tmp.yaml -y
 	bin/micromamba run -r conda -p conda/envs/linux make clean
 	echo $KCPP_CUDA > conda/envs/linux/cudaver
-	echo rm environment.tmp.yaml
+	rm environment.tmp.yaml
 fi
 
 if [[ ! -f "conda/envs/linux/bin/python" && $KCPP_CUDA == "rocm" || $1 == "rebuild" && $KCPP_CUDA == "rocm" ]]; then
@@ -30,7 +29,6 @@ KCPP_CUDAAPPEND=-cuda${KCPP_CUDA//.}$KCPP_APPEND
 LLAMA_NOAVX1_FLAG=""
 LLAMA_NOAVX2_FLAG=""
 ARCHES_FLAG=""
-NO_WMMA_FLAG=""
 if [ -n "$NOAVX2" ]; then
 	LLAMA_NOAVX2_FLAG="LLAMA_NOAVX2=1"
 fi
@@ -46,14 +44,11 @@ fi
 if [ -n "$ARCHES_CU13" ]; then
 	ARCHES_FLAG="LLAMA_ARCHES_CU13=1"
 fi
-if [ -n "$NO_WMMA" ]; then
-	NO_WMMA_FLAG="LLAMA_NO_WMMA=1"
-fi
 
 if [ "$KCPP_CUDA" = "rocm" ]; then
-	bin/micromamba run -r conda -p conda/envs/linux make -j$(nproc) LLAMA_VULKAN=1 LLAMA_HIPBLAS=1 LLAMA_PORTABLE=1 LLAMA_USE_BUNDLED_GLSLC=1 LLAMA_ADD_CONDA_PATHS=1 $LLAMA_NOAVX1_FLAG $LLAMA_NOAVX2_FLAG $ARCHES_FLAG $NO_WMMA_FLAG
+	bin/micromamba run -r conda -p conda/envs/linux make -j$(nproc) LLAMA_VULKAN=1 LLAMA_HIPBLAS=1 LLAMA_PORTABLE=1 LLAMA_USE_BUNDLED_GLSLC=1 LLAMA_ADD_CONDA_PATHS=1 $LLAMA_NOAVX1_FLAG $LLAMA_NOAVX2_FLAG $ARCHES_FLAG
 else
-	bin/micromamba run -r conda -p conda/envs/linux make -j$(nproc) LLAMA_VULKAN=1 LLAMA_CUBLAS=1 LLAMA_PORTABLE=1 LLAMA_USE_BUNDLED_GLSLC=1 LLAMA_ADD_CONDA_PATHS=1 $LLAMA_NOAVX1_FLAG $LLAMA_NOAVX2_FLAG $ARCHES_FLAG $NO_WMMA_FLAG
+	bin/micromamba run -r conda -p conda/envs/linux make -j$(nproc) LLAMA_VULKAN=1 LLAMA_CUBLAS=1 LLAMA_PORTABLE=1 LLAMA_USE_BUNDLED_GLSLC=1 LLAMA_ADD_CONDA_PATHS=1 $LLAMA_NOAVX1_FLAG $LLAMA_NOAVX2_FLAG $ARCHES_FLAG
 fi
 
 if [ $? -ne 0 ]; then
@@ -92,5 +87,5 @@ elif [[ $1 == "dist" ]]; then
 	fi
 	bin/micromamba install --no-rc -r conda -p conda/envs/linux ocl-icd -c conda-forge -y
 else
-	bin/micromamba run -r conda -p conda/envs/linux python koboldcpp.py $*
+	bin/micromamba run -r conda -p conda/envs/linux python koboldcpp.py "$@"
 fi

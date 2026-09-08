@@ -23,8 +23,6 @@
 extern "C"
 {
 
-    std::string vulkandeviceenv;
-
     //return val: 0=fail, 1=(original ggml, alpaca), 2=(ggmf), 3=(ggjt)
     static FileFormat file_format = FileFormat::BADFORMAT;
     static FileFormatExtraMeta file_format_meta;
@@ -37,21 +35,6 @@ extern "C"
         draftmodel_filename = inputs.draftmodel_filename;
 
         file_format = check_file_format(model.c_str(),&file_format_meta);
-
-        std::string vulkan_info_raw = inputs.vulkan_info;
-        std::string vulkan_info_str = "";
-        for (size_t i = 0; i < vulkan_info_raw.length(); ++i) {
-            vulkan_info_str += vulkan_info_raw[i];
-            if (i < vulkan_info_raw.length() - 1) {
-                vulkan_info_str += ",";
-            }
-        }
-        const char* existingenv = getenv("GGML_VK_VISIBLE_DEVICES");
-        if(!existingenv && vulkan_info_str!="")
-        {
-            vulkandeviceenv = "GGML_VK_VISIBLE_DEVICES="+vulkan_info_str;
-            putenv((char*)vulkandeviceenv.c_str());
-        }
 
         executable_path = inputs.executable_path;
 
@@ -209,6 +192,11 @@ extern "C"
         }
     }
 
+    bool launch_rpc_server(const char * endpoint, const char * devices)
+    {
+        return host_rpc_server(endpoint,devices);
+    }
+
     bool sd_load_model(const sd_load_model_inputs inputs)
     {
         return sdtype_load_model(inputs);
@@ -224,6 +212,18 @@ extern "C"
     sd_info_outputs sd_get_info()
     {
         return sdtype_get_info();
+    }
+    void sd_abort_generation()
+    {
+        sdtype_abort_generation();
+    }
+    sd_info_outputs sd_get_ongoing_generation_info()
+    {
+        return sdtype_get_ongoing_generation_info();
+    }
+    void sd_request_ongoing_generation_preview()
+    {
+        sdtype_request_ongoing_generation_preview();
     }
 
     bool whisper_load_model(const whisper_load_model_inputs inputs)
@@ -274,6 +274,33 @@ extern "C"
 
     bool has_finished() {
         return generation_finished;
+    }
+    bool batch_generate_enabled() {
+        return gpttype_batch_generate_enabled();
+    }
+    int batch_generate_submit(const generation_inputs inputs) {
+        return gpttype_batch_generate_submit(inputs);
+    }
+    bool batch_generate_has_finished(int request_id) {
+        return gpttype_batch_generate_has_finished(request_id);
+    }
+    int batch_generate_stream_count(int request_id) {
+        return gpttype_batch_generate_stream_count(request_id);
+    }
+    const char * batch_generate_new_token(int request_id, int idx) {
+        return gpttype_batch_generate_new_token(request_id, idx);
+    }
+    const char * batch_generate_pending_output(int request_id) {
+        return gpttype_batch_generate_pending_output(request_id);
+    }
+    generation_outputs batch_generate_result(int request_id) {
+        return gpttype_batch_generate_result(request_id);
+    }
+    bool batch_generate_abort(int request_id) {
+        return gpttype_batch_generate_abort(request_id);
+    }
+    void batch_generate_release(int request_id) {
+        gpttype_batch_generate_release(request_id);
     }
     bool has_audio_support()
     {
@@ -332,6 +359,25 @@ extern "C"
         return chat_template.c_str();
     }
 
+    static std::string parsed_tool_calls = "";
+    const char* parse_chat_tool_calls(const char * generated_text,
+                                      const char * tools_json,
+                                      const char * chat_template,
+                                      const char * chat_template_kwargs_json,
+                                      const char * tool_choice,
+                                      bool parallel_tool_calls,
+                                      bool is_partial) {
+        parsed_tool_calls = gpttype_parse_chat_tool_calls(
+            generated_text ? generated_text : "",
+            tools_json ? tools_json : "",
+            chat_template ? chat_template : "",
+            chat_template_kwargs_json ? chat_template_kwargs_json : "",
+            tool_choice ? tool_choice : "",
+            parallel_tool_calls,
+            is_partial);
+        return parsed_tool_calls.c_str();
+    }
+
     const char* get_pending_output() {
        return gpttype_get_pending_output().c_str();
     }
@@ -352,14 +398,14 @@ extern "C"
     }
 
     static std::string detokenized_str = ""; //just share a static object for detokenizing
-    const char * detokenize(const token_count_outputs input)
+    const char * detokenize(const detokenize_inputs input)
     {
         std::vector<int> input_arr;
         for(int i=0;i<input.count;++i)
         {
             input_arr.push_back(input.ids[i]);
         }
-        detokenized_str = gpttype_detokenize(input_arr,false);
+        detokenized_str = gpttype_detokenize(input_arr,input.special);
         return detokenized_str.c_str();
     }
 
@@ -418,5 +464,15 @@ extern "C"
     bool clear_state_kv()
     {
         return gpttype_clear_state_kv(true);
+    }
+
+    int set_environment_variable(const char * identifier, const char * value)
+    {
+        if (!identifier || !value) return -1;
+        #ifdef _WIN32
+            return _putenv_s(identifier, value);
+        #else
+            return setenv(identifier, value, 1);
+        #endif
     }
 }

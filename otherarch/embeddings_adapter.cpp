@@ -22,7 +22,6 @@
 #endif
 
 static llama_context * embeddings_ctx = nullptr; //text to codes ctx
-static std::string ttsvulkandeviceenv;
 bool embeddings_debug = false;
 static int max_batchsize = 512;
 static std::string last_output = "";
@@ -82,26 +81,11 @@ static void batch_decode(llama_context * ctx, llama_batch & batch, float * outpu
 
 bool embeddingstype_load_model(const embeddings_load_model_inputs inputs)
 {
-    //duplicated from expose.cpp
-    std::string vulkan_info_raw = inputs.vulkan_info;
-    std::string vulkan_info_str = "";
-    for (size_t i = 0; i < vulkan_info_raw.length(); ++i) {
-        vulkan_info_str += vulkan_info_raw[i];
-        if (i < vulkan_info_raw.length() - 1) {
-            vulkan_info_str += ",";
-        }
-    }
-    const char* existingenv = getenv("GGML_VK_VISIBLE_DEVICES");
     std::vector<ggml_backend_dev_t> devices_override;
     std::string dev_override_str = inputs.devices_override;
     if(dev_override_str!="")
     {
         devices_override = kcpp_parse_device_list(dev_override_str);
-    }
-    if(!existingenv && vulkan_info_str!="")
-    {
-        ttsvulkandeviceenv = "GGML_VK_VISIBLE_DEVICES="+vulkan_info_str;
-        putenv((char*)ttsvulkandeviceenv.c_str());
     }
 
     llama_backend_init();
@@ -114,8 +98,7 @@ bool embeddingstype_load_model(const embeddings_load_model_inputs inputs)
     llama_model_params model_params = llama_model_default_params();
     llama_context_params ctx_params = llama_context_default_params();
     const int nthreads = inputs.threads;
-    model_params.use_mmap = inputs.use_mmap;
-    model_params.use_mlock = false;
+    model_params.load_mode = inputs.use_mmap ? LLAMA_LOAD_MODE_MMAP : LLAMA_LOAD_MODE_NONE;
     model_params.n_gpu_layers = inputs.gpulayers; //offload if possible
     int kcpp_parseinfo_maindevice = inputs.kcpp_main_gpu<=0?0:inputs.kcpp_main_gpu;
     model_params.main_gpu = kcpp_parseinfo_maindevice;

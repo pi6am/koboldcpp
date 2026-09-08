@@ -84,16 +84,37 @@ ModelLoadResult gpttype_load_model(const load_model_inputs inputs, FileFormat in
 generation_outputs gpttype_generate(const generation_inputs inputs);
 bool gpttype_generate_abort();
 std::string gpttype_get_chat_template();
+std::string gpttype_parse_chat_tool_calls(const std::string & generated_text,
+                                          const std::string & tools_json,
+                                          const std::string & chat_template,
+                                          const std::string & chat_template_kwargs_json,
+                                          const std::string & tool_choice,
+                                          bool parallel_tool_calls,
+                                          bool is_partial);
+bool gpttype_batch_generate_enabled();
+int gpttype_batch_generate_submit(const generation_inputs inputs);
+bool gpttype_batch_generate_has_finished(int request_id);
+int gpttype_batch_generate_stream_count(int request_id);
+const char * gpttype_batch_generate_new_token(int request_id, int idx);
+const char * gpttype_batch_generate_pending_output(int request_id);
+generation_outputs gpttype_batch_generate_result(int request_id);
+bool gpttype_batch_generate_abort(int request_id);
+void gpttype_batch_generate_release(int request_id);
 
 const std::string & gpttype_get_pending_output();
 std::vector<int> gpttype_get_token_arr(const std::string & input, bool addbos);
 std::string gpttype_detokenize(const std::vector<int> & input, bool render_special);
 const std::vector<TopPicksData> gpttype_get_top_picks_data();
 
+bool host_rpc_server(std::string endpoint, std::string devices);
+
 bool sdtype_load_model(const sd_load_model_inputs inputs);
 sd_generation_outputs sdtype_generate(const sd_generation_inputs inputs);
 sd_generation_outputs sdtype_upscale(const sd_upscale_inputs inputs);
 sd_info_outputs sdtype_get_info();
+sd_info_outputs sdtype_get_ongoing_generation_info();
+void sdtype_request_ongoing_generation_preview();
+void sdtype_abort_generation();
 
 bool whispertype_load_model(const whisper_load_model_inputs inputs);
 whisper_generation_outputs whispertype_generate(const whisper_generation_inputs inputs);
@@ -117,7 +138,7 @@ bool ArrStartWith(const std::vector<int> targetArray, const std::vector<int> sea
 int ArrFindIndexOf(const std::vector<int> targetArray, const std::vector<int> searchSeq);
 
 FileFormat check_file_format(const std::string & fname, FileFormatExtraMeta * fileformatmeta);
-void ContextFastForward(std::vector<int> &current_context_tokens, std::vector<int> &embd_inp, int &n_past, std::vector<int> &last_n_tokens, const int nctx, std::vector<int> &smartcontext, const bool useSmartContext, const bool requireFullSubset, const int minimum_to_proceed);
+void ContextFastForward(std::vector<int> &current_context_tokens, std::vector<int> &embd_inp, int &n_past, std::vector<int> &last_n_tokens, const int nctx, std::vector<int> &smartcontext, const bool useSmartContext, const bool requireFullSubset, const int minimum_to_proceed, const int minimum_input_to_keep);
 bool gguf_tensor_exists(const std::string & filename, std::string tensor_name, bool exactmatch);
 std::string gguf_get_model_arch(const std::string & filename);
 
